@@ -121,15 +121,7 @@ Amidst the insightful results, we encountered **intriguing contradictions**. Vac
 -	`Code and Interpretation.pdf`: If you're seeking a comprehensive summary of the project's journey, this PDF is your go-to resource. It condenses the entire analytical process into an accessible format. From data analysis and modeling to visualizations and conclusions, this document allows you to explore the project's insights without needing to dive into the code directly.
 Each of these files serves a unique purpose in unravelling the intricate dynamics of COVID-19 in the UK and the impact of vaccination campaigns.
 
-## Authors and References
-
-👥 **Authors**: 
-
-**Vinothini Balasubramani/22202390** (mailto:vinothinibs09@gmail.com)
-
-**Sreelekshmi Girijadevi Purushothaman/22200034** (mailto:sreelekshmi97@gmail.com)
-
-📚 **References**:
+## References
 
 Key academic sources and datasets used in the analysis are referenced for further exploration.
 
