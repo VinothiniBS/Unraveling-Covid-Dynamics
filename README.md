@@ -1,5 +1,5 @@
 <div align="center">
-    <img src="Images/Header.jpg" alt="Title" width="950" height="225">
+    <img src="images/Header.jpg" alt="Title" width="950" height="225">
 </div>
 <br>
 
@@ -32,13 +32,13 @@ The implementation of the Multivariate Linear Regression (MLR) method involves t
 
 #### The plots shown below help to understand the trends of cases, hospitalizations, and deaths in the pre-vaccination data set:
 
-![Pre Vaccination Trends](Images/Pre%20Vaccination%20Trends.jpg)
+![Pre Vaccination Trends](images/Pre%20Vaccination%20Trends.jpg)
 
 A discernible trend is evident in the pre-vaccination data set: as the days progress, there is a marked increase in the number of cases, hospitalizations, and deaths.
 
 #### The plots shown below help to understand the trends of cases, hospitalizations, and deaths in the vaccination data set:
 
-![Vaccination Trends](Images/Vaccination%20Trends.jpg)
+![Vaccination Trends](images/Vaccination%20Trends.jpg)
 
 In the vaccination data set, there is a conspicuous decline in the number of cases, hospitalizations, and deaths as the days unfold.
 
@@ -64,7 +64,7 @@ Employed __Multivariate Linear Regression__ to analyze relationships between COV
 
 #### Visualizations of the impact of multiple variables in the pre-vaccination Multivariate Linear Regression model
 
-![Pre Vaccination Model Results](Images/Pre%20Vaccination%20Model%20Results.jpg)
+![Pre Vaccination Model Results](images/Pre%20Vaccination%20Model%20Results.jpg)
 
 For the pre-vaccination data, the forest plots offer a visual representation of various factors and their associations with Covid-19 cases, deaths, and hospitalizations.
 
@@ -81,7 +81,7 @@ Extended the multivariate regression analysis to capture the dynamics post-vacci
 
 #### Visualizations of the impact of multiple variables in the vaccination Multivariate Linear Regression model
 
-![Vaccination Model Results](Images/Vaccination%20Model%20Results.jpg)
+![Vaccination Model Results](images/Vaccination%20Model%20Results.jpg)
 
 For the vaccination data, the forest plots offer a visual representation of various factors and their associations with Covid-19 cases, deaths, and hospitalizations.
 
