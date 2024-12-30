@@ -1,0 +1,756 @@
+---
+title: "Unraveling Covid-19 Dynamics in the UK: Insights from Multivariate Analysis"
+author: "Vinothini Balasubramani/22202390, Sreelekshmi Girijadevi Purushothaman/22200034"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.height = 4)
+```
+
+## Vaccination Impact: Modeling Infections, Hospitalization and Mortality
+ 
+Performing Multivariate linear Regression on Covid-19 Pre Vaccination period data and Vaccination period data to analyse the impact of vaccine and other factors on the infections, hospitalization and mortality rate.
+
+## Package and Data Loading:
+
+### Loading the required packages:
+
+```{r Packages, message=FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(cowplot)
+library(tidyverse)
+library(caret)
+library(car)
+library(gganimate)
+library(animation)
+library(transformr)
+library(ggthemes)
+library(gridExtra)
+```
+
+### Loading the data-sets:
+
+```{r Datasets}
+pre_vaccination_data <- read.csv("UK Pre vaccination period.csv")
+vaccination_data <- read.csv("UK Vaccination period.csv")
+```
+
+\newpage
+## Data Preprocessing:
+
+### Data cleaning:
+
+```{r Data cleaning}
+# Replace NA values with zeros
+pre_vaccination_data[] <- lapply(pre_vaccination_data, function(x)
+                                 replace(x, is.na(x), 0))
+
+vaccination_data[] <- lapply(vaccination_data, function(x) 
+                             replace(x, is.na(x), 0))
+```
+
+
+### Data formatting:
+
+```{r Data formatting}
+columns_to_format <- c("average_temperature_celsius",
+                       "minimum_temperature_celsius",
+                       "maximum_temperature_celsius", "rainfall_mm",
+                       "dew_point", "relative_humidity")
+
+# Rounding off the columns
+pre_vaccination_data[, columns_to_format] <- round(pre_vaccination_data[,                                                      columns_to_format], 2)
+vaccination_data[, columns_to_format] <- round(vaccination_data[,                                                          columns_to_format], 2)
+```
+
+## Exploratory Data Analysis:
+
+In this analysis, we will explore and visualize the COVID-19 case data for the United Kingdom during the pre-vaccination and vaccination periods. The data-sets contain various variables related to COVID-19 cases, deaths hospitalizations, vaccinations, mobility, weather, and government policies.
+
+### Data structure and summary statistics:
+
+Examining the structure of the data-sets to gain insights about the variables and computing the summary statistics to get an overview about the distribution of data.
+
+```{r Structure}
+# Display the structure and first few rows of the data-sets
+str(pre_vaccination_data)
+str(vaccination_data)
+```
+```{r Summary statistics}
+# Compute summary statistics
+summary_pre_vacc <- summary(pre_vaccination_data)
+summary_vacc <- summary(vaccination_data)
+
+# Display the summary statistics
+cat("Pre-Vaccination Data - Summary statistics:\n")
+print(summary_pre_vacc)
+cat("Vaccination Data - Summary statistics:\n")
+print(summary_vacc)
+```
+
+In this section, we computed and examined the summary statistics for both the pre-vaccination and vaccination datasets. These summary statistics provide a comprehensive overview of the key characteristics of the datasets. For the pre-vaccination data, the summary statistics offer insights into variables such as confirmed cases, death cases, hospitalized patients, testing trends, mobility trends, stringency index, and meteorological factors. Similarly, the vaccination data's summary statistics shed light on variables including the persons vaccinated, cumulative persons vaccinated, along with pre vaccination dataset's variables. By analyzing these summary statistics, we gain a better understanding of the distribution, central tendencies, and variations within each dataset's variables, which serves as a foundation step for further analysis and interpretation.
+
+### Data visualization:
+
+Exploring the patterns of the data to provide a clear and concise overview of patterns, trends, and insights within the data.
+
+**Pre Vaccination:** In this section, we analyze the pre-vaccination data to visualize the patterns of new cases, deaths, and hospitalizations. By exploring these visualizations, we aim to identify any trends or factors that may have influenced the COVID-19 metrics during the pre-vaccination period. 
+
+**Analyzing the trend of cases, deaths and hospitalized patients data in Pre vaccination period:**
+
+```{r EDA Plot1}
+# Create a sequence of row numbers to use as x-axis
+row_numbers <- seq(nrow(pre_vaccination_data))
+
+# Plot the patterns of cases, deaths and hospitalizations
+ggplot()+
+  geom_line(data = pre_vaccination_data, aes(x = row_numbers, 
+                                             y = new_confirmed,    
+                                             color = "New Confirmed"))+
+  geom_line(data = pre_vaccination_data, aes(x = row_numbers, 
+                                             y = new_deceased, 
+                                             color = "New Deceased"))+
+  geom_line(data = pre_vaccination_data, aes(x = row_numbers, 
+                                  y = new_hospitalized_patients, 
+                                  color = "New Hospitalized Patients"))+
+  labs(title = "Patterns of New Confirmed, New Deceased, and New
+       Hospitalized Patients (Pre-Vaccination Period)", x = " ", 
+       y = "Count", color = "Variable") + theme_minimal()
+```
+
+The plot shows **very high number of COVID-19 cases compared to hospitalizations and deaths**, likely due to many individuals opting for home quarantine and subsequent recovery. Severe cases led to hospitalizations, resulting in lower cumulative counts. Fortunately, the majority of cases resulted in survival, highlighting the significance of early detection and proper healthcare measures.
+
+**Analyzing the influence of mobility factors on cases, deaths and hospitalized patients data in Pre vaccination period:**
+
+```{r EDA Plot2}
+# Create long format data for mobility variables
+pre_vaccination_data_l <- pre_vaccination_data %>%
+                          gather(key = "MobilityFactor", 
+                                 value = "MobilityValue",
+                                 starts_with("mobility_"))
+
+# Create line plot for mobility factors against cases
+lp_cases <- ggplot(data = pre_vaccination_data_l,aes(x = MobilityValue)) +
+  geom_line(aes(y = new_confirmed, color = "New Cases")) +
+  labs(title = "Pre-Vaccination - Mobility Factors vs. New Cases", 
+       x = "Mobility Value", y = "Count", color = "Variable") +
+  facet_wrap(~ MobilityFactor, scales = "free_x") + theme_minimal()
+
+# Create line plot for mobility factors against deaths and hospital counts
+lp_deaths_hospital <- ggplot(data = pre_vaccination_data_l, 
+                             aes(x = MobilityValue)) +
+  geom_line(aes(y = new_deceased, color = "New Deaths")) +
+  geom_line(aes(y = new_hospitalized_patients, 
+                color = "New Hospitalized Patients")) +
+  # Adjust title for correct alignment
+  labs(title = 
+  "Pre-Vaccination - Mobility Factors vs.Deaths and Hospitalized Patients",
+       x = "Mobility Value", y = "Count", color = "Variable") +
+  facet_wrap(~ MobilityFactor, scales = "free_x") + theme_minimal()
+
+# Combine line plots for mobility factors using cowplot
+fig_cases <- plot_grid(lp_cases + theme(legend.position="bottom"),
+                       ncol = 1, align = 'v', axis = 'lr')
+
+fig_deaths_hospital <- plot_grid(lp_deaths_hospital + 
+                                 theme(legend.position = "bottom"),
+                                 ncol = 1, align = 'v', axis = 'lr')
+
+# Print the two figures
+print(fig_cases)
+print(fig_deaths_hospital)
+
+```
+
+**Interpretation: Mobility Variables' Impact on COVID-19 Cases, Deaths, and Hospital Patients:**
+
+**Mobility Factors - Description:**
+
+a. mobility_grocery_and_pharmacy: Percentage change in visits to places like grocery markets, food warehouses, farmers markets, specialty food shops, drug stores, and pharmacies compared to baseline.
+
+b. mobility_parks: Percentage change in visits to places like local parks, national parks, public beaches, marinas, dog parks, plazas, and public gardens compared to baseline.
+
+c. mobility_transit_stations: Percentage change in visits to places like public transport hubs such as subway, bus, and train stations compared to baseline.
+
+d. mobility_retail_and_recreation: Percentage change in visits to restaurants, cafes, shopping centers, theme parks, museums, libraries, and movie theaters compared to baseline.
+
+e. mobility_residential: Percentage change in visits to places of residence compared to baseline.
+
+f. mobility_workplaces: Percentage change in visits to places of work compared to baseline.
+
+**Relationship between Mobility Factors and COVID-19 Cases:**
+
+A decrease in COVID-19 cases is observed when all the mobility factors have a negative percentage change. This suggests that reduced mobility in various public places can contribute to lowering the spread of the virus.
+
+
+**Relationship between Mobility Factors and COVID-19 Deaths and Hospital Patients:**
+
+o Unlike COVID-19 cases, the relationship between mobility factors and deaths/hospital patients is not as direct. While there is a decrease in deaths/hospital patients for a negative percentage change, there are also some instances of spike in deaths/hospital patients.
+
+o One possible reason for this discrepancy is that hospitalizations and deaths may not have an immediate response to changes in mobility. People may seek hospitalization when their condition worsens after quarantine or self-isolation. Similarly, COVID-19 deaths might occur after a certain period of infection, and mobility may not be the sole factor influencing these outcomes.
+
+**Analyzing the influence of weather factors on cases, deaths and hospitalized patients data in Pre vaccination period:**
+
+```{r EDA Plot3}
+# Create long format data for weather variables
+pre_vaccination_data_l <- pre_vaccination_data %>%
+                          gather(key = "WeatherVariable", 
+                                 value = "WeatherValue",
+                                 average_temperature_celsius,
+                                 minimum_temperature_celsius,
+                                 maximum_temperature_celsius,
+                                 rainfall_mm,
+                                 dew_point,
+                                 relative_humidity)
+
+# Create line plot for weather variables against cases
+lp_cases_weather <- ggplot(data = pre_vaccination_data_l, aes(x = WeatherValue)) +
+  geom_line(aes(y = new_confirmed, color = "New Cases")) +
+  labs(title = "Pre-Vaccination - Weather Factors vs. New Cases", 
+       x = "Weather Value", y = "Count", color = "Variable") +
+  facet_wrap(~ WeatherVariable, scales = "free_x") + theme_minimal()
+
+# Create line plot for weather variables against deaths and hospital counts
+lp_deaths_hospital_weather <- ggplot(data = pre_vaccination_data_l, aes(x = WeatherValue)) +
+  geom_line(aes(y = new_deceased, color = "New Deaths")) +
+  geom_line(aes(y = new_hospitalized_patients, color = "New Hospitalized Patients")) +
+  # Adjust title for correct alignment
+  labs(title = 
+  "Pre-Vaccination - Weather Factors vs. Deaths and Hospitalized Patients",
+       x = "Weather Value", y = "Count", color = "Variable") +
+  facet_wrap(~ WeatherVariable, scales = "free_x") + theme_minimal()
+
+# Combine line plots for weather variables using cowplot
+fig_cases_weather <- plot_grid(lp_cases_weather + theme(legend.position = 
+                               "bottom"), ncol = 1, align = 'v', 
+                               axis = 'lr')
+
+fig_deaths_hospital_weather <- plot_grid(lp_deaths_hospital_weather + 
+                                         theme(legend.position = "bottom"),
+                                         ncol = 1, align = 'v', 
+                                         axis = 'lr')
+
+# Print the two figures
+print(fig_cases_weather)
+print(fig_deaths_hospital_weather)
+
+```
+\newpage
+**Interpretation: Weather Variables' Impact on COVID-19 Cases, Deaths, and Hospital Patients:**
+
+**Relationship between Weather Factors and COVID-19 Cases:**
+
+High Temperature: The plot shows that regions with higher temperatures tend to have fewer COVID-19 cases. This observation might be due to the fact that viruses like SARS-CoV-2, which causes COVID-19, can spread less efficiently in hot condition. However, it's essential to consider other factors as well, such as vaccination rates, population density, and public health measures.
+
+Low Temperature: Conversely, areas with lower temperatures appear to have higher numbers of COVID-19 cases. Cold temperatures may promote the survival and transmission of the virus, leading to more infections during colder months.
+
+Dew point: Higher temperature of dew point has lower cases comparing to the lower temperature, indicating that the dew point temperature might play a role in influencing the spread of the virus.
+
+High Humidity: The plot indicates that regions with higher humidity levels show a higher number of COVID-19 cases. This might be surprising, as many respiratory viruses thrive in low humidity. However, high humidity can lead to indoor crowding and reduced ventilation, which can facilitate viral transmission.
+
+**Relationship between Weather Factors and COVID-19 Hospital Patients:**
+
+The pattern observed in hospital patients follows a similar trend to that of COVID-19 cases. This suggests that weather factors might have an impact on the overall burden of COVID-19 on healthcare facilities. Regions with higher temperatures and lower humidity might experience lower hospitalization rates, while the opposite may be true for areas with lower temperatures and higher humidity.
+
+**Relationship between Weather Factors and COVID-19 Deaths:**
+
+Temperature Effect: Similar to the cases and hospitalization patterns, regions with higher temperatures show a lower number of COVID-19 deaths. Warmer temperatures might reduce the stability of the virus on surfaces and in the air, potentially leading to fewer infections and subsequent fatalities.
+
+Humidity Effect: Interestingly, the plot shows that humidity has no significant relationship with COVID-19 deaths. This finding might suggest that other factors, such as vaccination rates, healthcare system capacity, and adherence to preventive measures, play a more critical role in determining the mortality rate.
+
+**Vaccination period:** In this section, we examine the data from the vaccination period to gain insights into the impact of vaccination on COVID-19 metrics. We will focus on visualizing the vaccination variables against new cases, deaths, and hospitalizations. Through these visualizations, we aim to understand the role of vaccination in influencing the trends and outcomes of COVID-19 during this specific period. These visualizations will provide valuable information about the vaccination's overall impact on controlling the pandemic and highlight the significance of vaccination in public health strategies.
+
+```{r EDA Plot4}
+# Create long format data for vaccination variables
+vaccination_data_l <- vaccination_data %>%
+                      gather(key = "VaccinationVariable", 
+                             value = "VaccinationValue",
+                             new_persons_vaccinated,
+                             new_persons_fully_vaccinated)
+
+# Create line plot for vaccination variables against cases
+lp_cases_vaccination <- ggplot(data = vaccination_data_l, 
+                               aes(x = VaccinationValue)) +
+  geom_line(aes(y = new_confirmed, color = "New Cases")) +
+  labs(title = "Vaccination period - Vaccination Variables vs. New Cases", 
+       x = "Vaccination Value", y = "Count", color = "Variable") +
+  facet_wrap(~ VaccinationVariable, scales = "free_x") + theme_minimal() +
+  scale_x_continuous(labels = scales::comma_format()) +
+  scale_y_continuous(labels = scales::comma_format())
+
+# Create line plot for vaccination variables against deaths and hospital counts
+lp_deaths_hospital_vaccination <- ggplot(data = vaccination_data_l,
+                                         aes(x = VaccinationValue)) +
+  geom_line(aes(y = new_deceased, color = "New Deaths")) +
+  geom_line(aes(y = new_hospitalized_patients, color = 
+                "New Hospitalized Patients")) +
+  # Adjust title for correct alignment
+  labs(title = 
+"Vaccination period - Vaccination vs.Deaths & Hospitalized Patients",
+       x = "Vaccination Value", y = "Count", color = "Variable") +
+  facet_wrap(~ VaccinationVariable, scales = "free_x") + theme_minimal() +
+  scale_x_continuous(labels = scales::comma_format())
+
+# Combine line plots for vaccination variables using cowplot
+fig_cases_vaccination <- plot_grid(lp_cases_vaccination +
+                                   theme(legend.position = "bottom"),
+                                   ncol = 1, align = 'v', axis = 'lr')
+
+fig_deaths_hospital_vaccination <- plot_grid(lp_deaths_hospital_vaccination
+                                             + theme(legend.position =
+                                             "bottom"), ncol = 1, 
+                                             align = 'v', axis = 'lr')
+
+# Print the two figures
+print(fig_cases_vaccination)
+print(fig_deaths_hospital_vaccination)
+
+```
+
+**Interpretation: Vaccination Variables' Impact on COVID-19 Cases, Deaths, and Hospital Patients:**
+
+**Relationship between Vaccination Factors and COVID-19 Cases:** 
+
+Both new_persons_vaccinated and new_persons_fully_vaccinated show a general decreasing trend in the number of new COVID-19 cases. This indicates that as the number of vaccinated individuals increases, there is a corresponding decrease in the number of new infections. The decline in cases suggests that the vaccination efforts are contributing positively to controlling the spread of the virus.
+
+**Relationship between Vaccination Factors and COVID-19 Hospital Patients:**
+
+The line plot for new_persons_fully_vaccinated shows a clear decrease in the number of hospitalized patients as the count of fully vaccinated individuals increases. This suggests that a higher number of fully vaccinated individuals are less likely to require hospitalization when infected with COVID-19. However, the line plot for new_persons_vaccinated does not show a consistent pattern, with ups and downs throughout the plot. This could indicate that the overall effect of new_persons_vaccinated on hospitalizations is not as pronounced or may vary based on other factors.
+
+**Relationship between Vaccination Factors and COVID-19 Deaths:**
+
+Similar to hospitalizations, the line plot for new_persons_fully_vaccinated shows a decline in COVID-19-related deaths as the count of fully vaccinated individuals increases. This indicates that a higher proportion of fully vaccinated individuals have better protection against severe outcomes of the disease. On the other hand, the relationship between new_persons_vaccinated and deaths is less evident, with fluctuations over time.
+
+\newpage
+**EDA - Conclusion:**
+
+In conclusion, Our Exploratory Data Analysis (EDA) revealed intriguing insights into the relationship between mobility, weather factors, vaccination variables, and COVID-19 metrics. During the pre-vaccination period, **specific mobility factors exhibited correlations with new cases, and weather factors also showed few associations**. However, the vaccination period showcased promising outcomes, with **both new_persons_vaccinated and new_persons_fully_vaccinated demonstrating a remarkable decrease in COVID-19 cases**. Moreover, these variables also influenced hospitalizations and deaths, although the impact differed. 
+
+To gain a more comprehensive understanding of the effects of vaccination and other factors on COVID-19 metrics, we plan to perform multivariate linear regression (MLR) on the pre-vaccination and vaccination data. This will allow us to refine our insights and make evidence-based conclusions.
+
+## Multivariate Linear Regression(MLR):
+
+Performing multivariate linear regression on the pre vaccination and vaccination period data-sets separately to find the impact of vaccination and the other factors on the Covid 19 infections, hospitalization and mortality rate.
+
+In this section, we adopt a data splitting approach to divide the data set into two subsets: the training set, and test set. We begin by building the model using the training data, and then we utilize the test data for the final model prediction, ensuring a robust and reliable outcome. This systematic process enables us to create an effective and well-tuned model capable of making accurate predictions based on the given predictor variables.
+
+### MLR on Pre vaccination period data:
+
+**Data Splitting:**
+```{r MLR Pre vaccination - Data splitting }
+
+# Define the predictor and response variables
+# pvd - pre vaccination data
+predictors_pvd <- pre_vaccination_data %>%
+  select(new_tested, cumulative_tested, mobility_retail_and_recreation,
+         mobility_grocery_and_pharmacy, mobility_parks,
+         mobility_transit_stations, mobility_workplaces,
+         mobility_residential, stringency_index,
+         average_temperature_celsius, minimum_temperature_celsius,
+         maximum_temperature_celsius, rainfall_mm, dew_point,
+         relative_humidity)
+
+responses_pvd <- pre_vaccination_data %>%
+  select(new_confirmed, new_deceased, cumulative_confirmed,
+         cumulative_deceased, new_hospitalized_patients,
+         cumulative_hospitalized_patients, current_hospitalized_patients,
+         current_ventilator_patients)
+
+# Scale the data
+predictors_pvd <- scale(predictors_pvd)
+responses_pvd <- scale(responses_pvd)
+
+# Convert scaled variables back to a data frame
+predictors_pvd <- as.data.frame(predictors_pvd)
+responses_pvd <- as.data.frame(responses_pvd)
+
+# Data splitting into train and test sets
+set.seed(123)  # Set seed for reproducibility
+train_index_pvd <- createDataPartition(1:nrow(pre_vaccination_data), 
+                                       p = 0.7, list = FALSE)
+train_data_pvd <- predictors_pvd[train_index_pvd, ]
+train_response_pvd <- responses_pvd[train_index_pvd, ]
+
+test_data_pvd <- predictors_pvd[-train_index_pvd, ]
+test_response_pvd <- responses_pvd[-train_index_pvd, ]
+```
+
+In data splitting, we selected relevant predictor and response variables from the "pre_vaccination_data" data set to build a predictive model for COVID-19 outcomes. The predictor variables encompass a wide range of factors such as testing metrics, mobility trends, and environmental features. To ensure comparability, we applied z-score standardization to scale all variables appropriately. The data was then split into training and testing sets, with **70% used for model training and 30% for evaluation.**
+
+**MLR - Model Building:**
+
+```{r MLR Pre vaccination - Model Building}
+# Combine response variables into a multivariate response data frame
+# pvd - pre vaccination data
+train_response_multivariate_pvd <- as.matrix(train_response_pvd)
+
+# Build the MLR model using train data
+pvd_model <- lm(train_response_multivariate_pvd ~ ., data = train_data_pvd)
+```
+
+Here, **the response variables are combined into a multivariate response data frame called "train_response_multivariate_pvd." This step is crucial as it allows us to build a multivariate linear regression (MLR) model capable of predicting multiple response variables** simultaneously. The "lm" function is then used to create the MLR model using the training data. By specifying the formula "train_response_multivariate_pvd ~ .", the model will use all available predictor variables from the "train_data_pvd" data frame. The model will estimate coefficients for each predictor, indicating the direction and strength of their influence on the multiple response variables, such as new confirmed cases, deaths and hospitalizations. 
+
+**MLR - Model Evaluation:**
+
+```{r MLR Pre vaccination - Model Evaluation}
+# Evaluate the model using test data
+# pvd - pre vaccination data
+predictions_pvd <- predict(pvd_model, newdata = test_data_pvd)
+
+# Combine response variables into a multivariate response data frame
+test_response_multivariate_pvd <- as.matrix(test_response_pvd)
+
+# Calculate Mean Squared Error (MSE) as an evaluation metric
+mse_pvd <- mean((predictions_pvd - test_response_multivariate_pvd)^2)
+rmse_pvd <- sqrt(mse_pvd)
+# Print the MSE
+cat("Mean Squared Error (MSE):", mse_pvd, "\n")
+cat("Root Mean Squared Error (RMSE):", rmse_pvd, "\n")
+```
+MLR model's performance is evaluated using the test data. The "predict" function is used to generate predictions for the "test_data_pvd" set. These predictions are then compared to the true response variables, which are combined into a multivariate response data frame called "test_response_multivariate_pvd". To quantify the model's performance, the Mean Squared Error (MSE) and the Root Mean Squared Error (RMSE) values are calculated by measuring the average squared difference between the predicted and true values for all response variables. 
+
+The obtained **Mean Squared Error (MSE) value of 0.1028802 and Root Mean Squared Error (RMSE) value of 0.3207495** showcases the effectiveness of the multivariate linear regression model in accurately predicting COVID-19 outcomes based on the selected predictor variables. A low MSE and RMSE indicate that the model's predictions are significantly close to the actual data, highlighting its reliability and robustness in generalizing to new and unseen data. This strong alignment between predictions and actual outcomes underscores the model's high accuracy and ability to provide valuable insights into understanding and forecasting COVID-19 trends. Consequently, we can confidently assert that **this is an effective and dependable model for gaining deeper insights into the factors influencing COVID-19 outcomes.**
+
+**MLR - Model Summary:**
+
+```{r MLR Pre vaccination - Model Summary}
+summary(pvd_model)
+```
+
+```{r Plotting estimtes - pv data model}
+# Extracting estimates from summary
+pvs <- summary(pvd_model)
+
+estimate_pvsnc <- (coef(pvs)[[paste("Response", "new_confirmed")]])[,"Estimate"]
+# Create a data frame for the estimates and their labels
+estimate_data_pvsnc <- data.frame(
+  Variable = names(estimate_pvsnc),
+  Estimate = estimate_pvsnc
+)
+
+estimate_pvsnd <- (coef(pvs)[[paste("Response", "new_deceased")]])[,"Estimate"]
+# Create a data frame for the estimates and their labels
+estimate_data_pvsnd <- data.frame(
+  Variable = names(estimate_pvsnd),
+  Estimate = estimate_pvsnd
+)
+
+estimate_pvsnh <- (coef(pvs)[[paste("Response", "new_hospitalized_patients")]])[,"Estimate"]
+# Create a data frame for the estimates and their labels
+estimate_data_pvsnh <- data.frame(
+  Variable = names(estimate_pvsnh),
+  Estimate = estimate_pvsnh
+)
+
+eplot1 <- ggplot(estimate_data_pvsnc[-1,], 
+                 aes(x = Estimate, y = fct_reorder(Variable, Estimate))) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
+  geom_point() +
+  geom_errorbarh(aes(xmin = Estimate - 2 * abs(Estimate), 
+                     xmax = Estimate + 2 * abs(Estimate))) +
+  labs(title = "Cases - Estimates", x = "Estimate") +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 10, hjust = 0), 
+        axis.title.y = element_blank())
+
+eplot2 <- ggplot(estimate_data_pvsnd[-1,], 
+                 aes(x = Estimate, y = fct_reorder(Variable, Estimate))) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
+  geom_point() +
+  geom_errorbarh(aes(xmin = Estimate - 2 * abs(Estimate), 
+                     xmax = Estimate + 2 * abs(Estimate))) +
+  labs(title = "Deaths - Estimates", x = "Estimate") +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 10, hjust = 0), 
+        axis.title.y = element_blank())
+
+eplot3 <- ggplot(estimate_data_pvsnh[-1,], 
+                 aes(x = Estimate, y = fct_reorder(Variable, Estimate))) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
+  geom_point() +
+  geom_errorbarh(aes(xmin = Estimate - 2 * abs(Estimate), 
+                     xmax = Estimate + 2 * abs(Estimate))) +
+  labs(title = "Hospitalizations - Estimates", x = "Estimate") +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 10, hjust = 0), 
+        axis.title.y = element_blank())
+
+# Display the plots
+eplot1
+eplot2
+eplot3
+```
+\newpage
+**Interpretation: Summary of Pre Vaccination data - Multivariate Linear Regression model:**
+
+Let's interpret each response variable derived from our effective multivariate linear regression model. The results have revealed significant predictor variables, and we will now proceed to thoroughly examine the prediction summary for each response variable. By doing so, we can gain a comprehensive understanding of their respective implications for COVID-19 outcomes. The summary predictions of all response variables demonstrate an adjusted R-squared greater than 0.80, indicating a strong level of explanatory power in the model and excellent predictive performance. This suggests that the model is a highly effective fit for the data.
+
+**New Confirmed Cases:**
+
+The analysis for new confirmed cases indicates several significant predictor variables. **Cumulative tested, stringency index, and mobility grocery and pharmacy show statistically significant positive relationships** with new confirmed cases. This implies that higher cumulative testing rates and increased mobility to grocery and pharmacy places are associated with higher new confirmed cases and the main factor to note is despite of more stringent restrictions. 
+
+Conversely, **mobility in workplaces display significant negative relationships** with new confirmed cases, the interpretation should be cautious and not imply that returning to workplaces without precautions is universally advisable. Many factors can influence the relationship between workplace mobility and COVID-19 cases. For instance, certain workplaces may have strict safety measures in place, and adherence to public health guidelines can vary across different industries and regions. Therefore, it is essential to consider the broader context, the specific nature of workplaces, and the potential impact of various factors on the relationship between workplace mobility and COVID-19 cases. 
+
+**New Deceased Cases:**
+
+The analysis for new deceased cases reveals few significant predictor variables, including test variables, mobility in parks and transit, and the stringency index. The number of new COVID-19 cases tested shows a negative correlation with the number of new deaths but this is not giving a considerable insight. But, on the other hand, **the cumulative number of tested cases demonstrates a positive association** with new deaths, as indicated by the coefficient estimate of 0.605. 
+
+The **mobility in parks and transit have negative association** indicating that decreased mobility reflects a increase in new confirmed deaths. But again we have to interpret this cautiously, as it's not advisable to roam around in parks or transit during pandemic.
+
+**Cumulative Confirmed Cases:**
+
+In the context of cumulative confirmed cases: Foremost, the **cumulative number of tested cases exhibits the most substantial positive impact, with a coefficient estimate of 1.063.** Moreover, we observe significant positive associations between confirmed cases and stringency index. 
+
+Interestingly, mobility in retail and recreation demonstrates a significant
+negative impact, implying that higher mobility in such settings associates with fewer cumulative confirmed COVID-19 cases, but here also we couldn't take this in account. Additionally, we find a moderate positive impact from mobility in grocery and pharmacy. 
+
+**Cumulative Deceased Cases:**
+
+The cumulative number of deceased cases, similar to new deceased cases, is notably and **significantly associated with the cumulative number of tested individuals**. This finding suggests that a considerable proportion of deceased individuals likely underwent testing, indicating a direct correlation. The results imply that the number of confirmed deceased cases is closely related to the number of individuals who sought medical attention and received testing.
+
+Other significant factors with **positive impact are mobility in parks, grocery and pharmacy and transit stations**. Higher mobility in public places is linked to an increase in cumulative deceased cases, possibly due to gatherings and reduced adherence to preventive measures.
+
+An intriguing observation from our analysis is that **higher minimum temperatures and increased rainfall have a positive impact on the number of deaths**, confirming what we previously observed in our exploratory data analysis (EDA) visualizations. This implies that regions experiencing higher minimum temperatures and more rainfall may have a higher mortality rate from COVID-19.
+
+**New Hospitalized Patients:**
+
+Cumulative tested and stringency index show statistically significant positive relationships with new hospitalized patients. This implies that **higher cumulative testing, and more stringent restrictions may be associated with higher numbers of new hospitalized patients.** Higher average temperatures, as well as maximum temperatures, show positive associations with new confirmed and hospitalized cases. This suggests that warmer weather may contribute to an increase in COVID-19 transmission or affect people's behavior, leading to higher case counts. However, it is essential to approach this correlation cautiously and consider other contributing factors before drawing definitive conclusions.
+
+**Cumulative Hospitalized Patients:**
+
+Cumulative tested, mobility grocery and pharma, mobility transit and mobility parks show statistically significant positive relationships with cumulative hospitalized patients. This suggests that **higher cumulative testing, increased movement in grocery, pharmacy, parks and transit areas may lead to higher cumulative hospitalized patients**. Conversely, mobility retail and recreation, but again we couldn't come for direct conclusion here, without considering other factors.
+
+**Current Hospitalized Patients:**
+
+Cumulative tested, mobility grocery and pharmacy, and stringency index show statistically significant positive relationships with current hospitalized patients. This implies that **higher cumulative testing, increased movement in grocery and pharmacy, and more stringent restrictions may be associated with a higher number of current hospitalized patients**. However, mobility parks and mobility transit stations display significant negative relationships with current hospitalized patients, suggesting that increased movement in parks and transit stations may lead to a decrease in current hospitalized patients, and again an unaccountable relationship.
+
+**Current Ventilator Patients:**
+
+New tested shows a statistically significant positive relationship with current ventilator patients, implying that **higher number of new testing may be associated with a lower number of current ventilator patients**. On the other hand, cumulative tested and stringency index display statistically significant positive relationships with current ventilator patients, suggesting that current ventilator patients have direct correlation with cumulative tested.
+
+
+### MLR on Vaccination period data:
+
+In both the pre-vaccination and vaccination data analyses, we followed a similar procedure to build multivariate linear regression models. While the predictor variables encompassed a wide range of factors such as testing metrics, mobility trends, and environmental features, the crucial vaccination variables are also included in the analysis of vaccination data. This allowed us to explore how vaccination rates may influence COVID-19 outcomes alongside other predictors. 
+
+**Data Splitting:**
+```{r MLR vaccination - Data splitting }
+
+# Define the predictor and response variables
+# vd - vaccination data
+predictors_vd <- vaccination_data %>%
+  select(new_tested, cumulative_tested, new_persons_vaccinated,
+         cumulative_persons_vaccinated,	new_persons_fully_vaccinated,
+         cumulative_persons_fully_vaccinated,
+         mobility_retail_and_recreation,
+         mobility_grocery_and_pharmacy, mobility_parks,
+         mobility_transit_stations, mobility_workplaces,
+         mobility_residential, stringency_index,
+         average_temperature_celsius, minimum_temperature_celsius,
+         maximum_temperature_celsius, rainfall_mm, dew_point,
+         relative_humidity)
+
+responses_vd <- vaccination_data %>%
+  select(new_confirmed, new_deceased, cumulative_confirmed,
+         cumulative_deceased, new_hospitalized_patients,
+         cumulative_hospitalized_patients, current_hospitalized_patients,
+         current_ventilator_patients)
+
+# Scale the data
+predictors_vd <- scale(predictors_vd)
+responses_vd <- scale(responses_vd)
+
+# Convert scaled variables back to a data frame
+predictors_vd <- as.data.frame(predictors_vd)
+responses_vd <- as.data.frame(responses_vd)
+
+# Data splitting into train and test sets
+set.seed(123)  # Set seed for reproducibility
+train_index_vd <- createDataPartition(1:nrow(vaccination_data), 
+                                      p = 0.7, list = FALSE)
+train_data_vd <- predictors_vd[train_index_vd, ]
+train_response_vd <- responses_vd[train_index_vd, ]
+
+test_data_vd <- predictors_vd[-train_index_vd, ]
+test_response_vd <- responses_vd[-train_index_vd, ]
+```
+
+Similar to the pre-vaccination data, the "vaccination_data" is also split into **training (70%) and testing (30%)** sets for model development and evaluation. Predictor and response variables were carefully chosen, including vaccination metrics, testing rates, mobility patterns, and weather attributes. Z-score normalization is also applied to ensure standardization and comparability across all variables.
+
+**MLR - Model Building:**
+
+```{r MLR vaccination data - Model Building}
+# Combine response variables into a multivariate response data frame
+train_response_multivariate_vd <- as.matrix(train_response_vd)
+
+# Build the MLR model using train data
+vd_model <- lm(train_response_multivariate_vd ~ ., data = train_data_vd)
+```
+
+For the vaccination data, we adopted a similar model-building approach as for the pre-vaccination data. We transformed the response variables into a matrix format and utilized the "lm" function to create the multivariate linear regression model. Notably, this enabled us to **examine the influence of the vaccination variable alongside other predictors** on the COVID-19 outcomes.
+
+**MLR - Model Evaluation:**
+
+```{r MLR Vaccination data - Model Evaluation}
+# Evaluate the model using test data
+predictions_vd <- predict(vd_model, newdata = test_data_vd)
+
+# Combine response variables into a multivariate response data frame
+test_response_multivariate_vd <- as.matrix(test_response_vd)
+
+# Calculate Mean Squared Error (MSE) as an evaluation metric
+mse_vd <- mean((predictions_vd - test_response_multivariate_vd)^2)
+rmse_vd <- sqrt(mse_vd)
+
+# Print the MSE and RMSE
+cat("Mean Squared Error (MSE):", mse_vd, "\n")
+cat("Root Mean Squared Error (RMSE):", rmse_vd, "\n")
+```
+Employed the same evaluation procedure for the MLR model using the test data. Predictions were generated for the "test_data_pvd" set using the "predict" function, and these predictions were compared to the true response variables in the "test_response_multivariate_pvd" data frame. The Mean Squared Error (MSE) and Root Mean Squared Error (RMSE) values were then computed to assess the model's performance, resulting in an **MSE value of 0.07249276 and RMSE value of 0.2692448**.
+
+The **MSE and RMSE for the vaccination data are lower than the error values of pre vaccination data**. This indicates that the multivariate linear regression model performs even more accurately in predicting COVID-19 outcomes for the vaccination data. The model's enhanced accuracy and ability to generalize to new and unseen data during the vaccination era are evident from this lower MSE value, solidifying its efficacy in understanding the factors influencing COVID-19 outcomes amidst the vaccination efforts. 
+
+**MLR - Model Summary:**
+
+```{r MLR Vaccination data - Model Summary}
+summary(vd_model)
+```
+
+
+```{r Plotting estimates - vaccination data model}
+#Extracting Estimates from summary
+vs <- summary(vd_model)
+
+estimate_vsnc <- (coef(vs)[[paste("Response", "new_confirmed")]])[,"Estimate"]
+# Create a data frame for the estimates and their labels
+estimate_data_vsnc <- data.frame(
+  Variable = names(estimate_vsnc),
+  Estimate = estimate_vsnc
+)
+
+estimate_vsnd <- (coef(vs)[[paste("Response", "new_deceased")]])[,"Estimate"]
+# Create a data frame for the estimates and their labels
+estimate_data_vsnd <- data.frame(
+  Variable = names(estimate_vsnd),
+  Estimate = estimate_vsnd
+)
+
+estimate_vsnh <- (coef(vs)[[paste("Response", "new_hospitalized_patients")]])[,"Estimate"]
+# Create a data frame for the estimates and their labels
+estimate_data_vsnh <- data.frame(
+  Variable = names(estimate_vsnh),
+  Estimate = estimate_vsnh
+)
+
+eplot4 <- ggplot(estimate_data_vsnc[-1,], 
+                 aes(x = Estimate, y = fct_reorder(Variable, Estimate))) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
+  geom_point() +
+  geom_errorbarh(aes(xmin = Estimate - 2 * abs(Estimate), 
+                     xmax = Estimate + 2 * abs(Estimate))) +
+  labs(title = "Cases - Estimates", x = "Estimate") +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 10, hjust = 0), 
+        axis.title.y = element_blank())
+
+eplot5 <- ggplot(estimate_data_vsnd[-1,], 
+                 aes(x = Estimate, y = fct_reorder(Variable, Estimate))) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
+  geom_point() +
+  geom_errorbarh(aes(xmin = Estimate - 2 * abs(Estimate), 
+                     xmax = Estimate + 2 * abs(Estimate))) +
+  labs(title = "Deaths - Estimates", x = "Estimate") +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 10, hjust = 0), 
+        axis.title.y = element_blank())
+
+eplot6 <- ggplot(estimate_data_vsnh, 
+                 aes(x = Estimate, y = fct_reorder(Variable, Estimate))) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray") +
+  geom_point() +
+  geom_errorbarh(aes(xmin = Estimate - 2 * abs(Estimate), 
+                     xmax = Estimate + 2 * abs(Estimate))) +
+  labs(title = "Hospitalizations - Estimates", x = "Estimate") +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 10, hjust = 0), 
+        axis.title.y = element_blank())
+
+# Display the plots
+eplot4
+eplot5
+eplot6
+```
+
+**Interpretation: Summary of Vaccination data - Multivariate Linear Regression model:**
+
+The model's summary presents the coefficients of all predictor variables, and it demonstrates excellent statistical measures, particularly notable R-squared values, indicating the model's effectiveness. These results imply that a significant portion of the variance in the response variables can be explained by the predictors. Now, let's delve into each response variable's corresponding significant factors and examine their relationships in detail.
+
+**New confirmed:**
+
+The predictor variables new_tested and cumulative_tested showed a positive association with new_confirmed, indicating that increased testing is linked to more confirmed cases. On the other hand, **new_persons_vaccinated and cumulative_persons_vaccinated exhibited negative relationships with new_confirmed**, suggesting that higher vaccination rates are associated with fewer new cases. Moreover, mobility_workplaces and stringency_index  showed positive associations. Conversely, minimum_temperature_celsius had a negative relationship with new_confirmed.
+
+**New Deceased:**
+
+The result revealed significant predictors associated with higher new COVID-19 deaths, including the variables new_tested and cumulative_tested. Conversely, **new_persons_vaccinated and "cumulative_persons_vaccinated" were linked to lower fatality rates**. Surprisingly, complete vaccination (new_persons_fully_vaccinated and cumulative_persons_fully_vaccinated) showed substantial positive impacts on new deaths, which could be attributed to an increase in the count due to potential delays in completing the vaccination process. Additionally, reduced mobility in grocery and pharmacy, residential and parks was associated with higher fatalities, while increased retail and recreation mobility showed the opposite trend.
+
+**Cumulative confirmed:**
+
+Variables new_tested, cumulative_persons_vaccinated and cumulative_persons_fully_vaccinated showed negative coefficients, suggesting that an **increase in testing  and vaccination have led to a lower cumulative case count**. On the other hand, new_persons_vaccinated and new_persons_fully_vaccinated variables displayed positive coefficients, indicating that higher vaccination rates were associated with a higher number of confirmed cases, but the coefficient values of these variables are less 0.1 indicating the influence of other factors here. Notably, mobility_parks, mobility_workplaces, and mobility_residential had positive effects on the cumulative confirmed cases. **Stringency index have the negative coefficient** indicating the negative relationship with the cumulative cases confirmed.
+
+**Cumulative Deceased:**
+
+Predictors **new_tested, new_persons_fully_vaccinated, & cumulative_persons_fully_vaccinated have negative coefficients**. An increase in testing, higher rates of complete vaccinations were associated with a decrease in cumulative deaths. Conversely, cumulative_tested, cumulative_persons_vaccinated, and dew_point displayed positive coefficients, suggesting that the total number of tests conducted, cumulative vaccinations, and dew point temperature may be associated with higher cumulative deaths. Here, we can leave out the positive significance of cumulative testing and vaccination since the new count of testing and vaccination have negative impact on deaths, but the important factor to observe is that the dew point shows positive significance in bot new and cumulative deceased.
+
+**New Hospitalized Patients:**
+
+The model predicts that new hospitalized patients are **positively correlated with new testing and cumulative testing**. An increase in **new persons and cumulative person vaccinated have negative association** with new hospitalizations. Mobility in workplace, residential, and parks showed positive correlations, suggesting that reduced movement in these areas  lead to fewer hospitalizations. 
+
+**Cumulative Hospitalized Patients:**
+
+The model indicates a strong positive relationship between cumulative hospitalized patients and cumulative testing. An **increase in fully vaccinated individuals is negatively correlated with cumulative hospitalizations**. Mobility in grocery, pharmacy and transit stations demonstrated positive correlations, implying that increased movement in these areas lead to more hospitalizations. Notably, higher stringency index showed a negative correlation, suggesting that stringent measures might limit the overall number of hospitalizations.
+
+**Current Hospitalized Patients:**
+
+Number of currently hospitalized patients is positively correlated with cumulative testing. An **increase in fully vaccinated individuals is negatively associated with the current number of hospitalizations also**. Mobility in grocery, pharmacy, workplace, residential and parks showed positive correlations, suggesting that reduced movement in these areas lead to fewer current hospitalizations. 
+
+**Current Ventilator Patients:**
+
+Number of current ventilator patients is **negatively correlated with cumulative testing and all the other vaccination factors**, indicating the increase in testing and vaccinations reduces the number of ventilator patients. As like other hospital patients response variables, this too have positive correlation with mobility factors like mobility_transit, mobility_grocery_and_pharmacy and mobility_parks. 
+
+
+## Disease Modeling Conclusion:
+
+**Key Findings and Interpretations:**
+
+**Testing: Direct Correlation Across Metrics:**
+
+In the pre-vaccination period, the maximum positive coefficient is observed for new_tested and cumulative_tested variables. This positive effect can be attributed to the fact that the number of COVID-19 cases and deaths is likely influenced by the individuals who have undergone testing. Thus, an increase in testing leads to higher reported COVID-19 metrics. In the vaccination period, we observe a mix of positive and negative coefficients, highlighting the combined influence of vaccination and testing. However, testing remains a significant factor in detecting and preventing fatalities even with the vaccination drive in place.
+
+**Stringency Index - A Mixed Picture:**
+
+In the pre-vaccination phase, the positive coefficients for stringency index highlight the challenges of containing the virus solely through government-imposed measures. While strict restrictions may curb cases to some extent, the influence of other factors contributes to increased COVID-19 metrics. In contrast, the negative coefficients for stringency index in vaccination data indicate that vaccination, along with stringent measures, is crucial for mitigating the infection spread.
+
+**Mobility: A Significant Contributor:**
+
+Mobility factors, particularly in public areas, significantly impact COVID-19 metrics. While some mobility variables showed positive coefficients, suggesting reduced movement is associated with fewer cases, other mobility factors demonstrated negative coefficients. However, it's essential to recognize that mobility alone cannot be the sole reason for fluctuations, as other contributing factors also play pivotal roles.
+
+**Vaccination: A Game-Changer**
+
+The vaccination variables showcased substantial negative impacts on COVID-19 metrics. Both Exploratory Data Analysis and Multivariate Linear Regression on Vaccination data revealed that higher rates of vaccination, both partially and fully vaccinated individuals, were associated with lower confirmed cases, deceased cases, hospitalized patients and ventilator patients. Vaccination is a crucial tool in disease control.
+
+**Weather: An Indirect Influence:**
+
+Weather factors, such as higher temperatures, dew points, and rainfall, demonstrated correlations with COVID-19 metrics. Although not the primary influencers, they may indirectly affect cases, hospitalizations, and deaths. Warmer weather showed a favorable correlation with lower infection rates, where as colder weather positively associated with the infections and deaths.
+
+In summary, this comprehensive disease modeling project unveiled significant predictors and their plausible implications for COVID-19 outcomes. 
+
+**o Testing emerged as a direct influencer across metrics.**
+
+**o Vaccination played a pivotal role in mitigating the virus's impact.**
+
+**o Mobility in public areas demonstrated its significance, and the interplay of various factors required cautious consideration.** 
+
+**o Government-imposed measures, coupled with vaccination, emerged as effective strategies in disease control.**
